@@ -1,0 +1,5 @@
+target/
+other/
+dist/
+AGENTS.md
+Cargo.lock

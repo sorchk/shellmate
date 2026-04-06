@@ -33,5 +33,8 @@ pub enum Commands {
         /// Target shell (bash/zsh/sh/auto)
         #[arg(long, default_value = "auto")]
         shell: String,
+        /// Only run AI provider configuration (skip shell integration setup)
+        #[arg(long)]
+        config_only: bool,
     },
 }

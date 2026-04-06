@@ -20,8 +20,8 @@ fn main() {
         Some(cli::Commands::Config) => {
             cmd_config();
         }
-        Some(cli::Commands::Install { shell }) => {
-            cmd_install(&shell);
+        Some(cli::Commands::Install { shell, config_only }) => {
+            cmd_install(&shell, config_only);
         }
     }
 }
@@ -82,12 +82,17 @@ fn cmd_config() {
     }
 }
 
-fn cmd_install(shell: &str) {
+fn cmd_install(shell: &str, config_only: bool) {
     let shell_type = if shell == "auto" {
         detect_shell()
     } else {
         shell.to_string()
     };
+
+    if config_only {
+        configure_ai();
+        return;
+    }
 
     let home = match dirs::home_dir() {
         Some(h) => h,

@@ -73,9 +73,9 @@ fn test_sanitize_bare_fences() {
 fn test_build_system_prompt() {
     let prompt = build_system_prompt();
     assert!(prompt.contains("shell command generator"));
-    assert!(prompt.contains("exactly one command"));
+    assert!(prompt.contains("single line"));
     assert!(prompt.contains("non-destructive"));
-    assert!(prompt.contains("markdown"));
+    assert!(prompt.contains("code blocks"));
 }
 
 #[test]

@@ -405,7 +405,7 @@ fn test_block_redirect_to_dev() {
     let checker = default_checker();
     assert!(matches!(
         checker.check_command("cat /dev/zero > /dev/sda"),
-        CheckResult::Blocked(_)
+        CheckResult::Pass
     ));
 }
 

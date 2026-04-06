@@ -1,8 +1,14 @@
 use clap::Parser;
+use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process;
 
 mod cli;
+
+const SHELLMATE_BASH: &str = include_str!("../shell/shellmate.bash");
+const SHELLMATE_ZSH: &str = include_str!("../shell/shellmate.zsh");
+const SHELLMATE_SH: &str = include_str!("../shell/shellmate.sh");
 
 fn main() {
     let cli = cli::Cli::parse();
@@ -90,6 +96,7 @@ fn cmd_install(shell: &str, config_only: bool) {
     };
 
     if config_only {
+        setup_config();
         configure_ai();
         return;
     }
@@ -124,26 +131,83 @@ fn cmd_install(shell: &str, config_only: bool) {
         }
     };
 
-    let integration_file = std::env::current_exe()
-        .ok()
-        .and_then(|exe| {
-            exe.parent().map(|p| {
-                p.join("..")
-                    .join("..")
-                    .join("shell")
-                    .join(format!("shellmate.{}", shell_type))
-            })
-        })
-        .unwrap_or_else(|| std::path::PathBuf::from(format!("shell/shellmate.{}", shell_type)));
-
     println!();
     println!("Shell: {}", shell_type);
     println!("RC file: {}", target_rc.display());
-    println!("Integration file: {}", integration_file.display());
     println!();
 
-    let config_dir = home.join(".shellmate");
-    let config_path = config_dir.join("config.yaml");
+    setup_shell_integration(&home, &shell_type);
+    setup_source_line(&target_rc, &shell_type);
+    setup_config();
+    configure_ai();
+
+    println!();
+}
+
+fn setup_shell_integration(home: &std::path::Path, shell_type: &str) {
+    let shell_dir = home.join(".shellmate").join("shell");
+
+    let content = match shell_type {
+        "bash" => SHELLMATE_BASH,
+        "zsh" => SHELLMATE_ZSH,
+        "sh" => SHELLMATE_SH,
+        _ => return,
+    };
+
+    if let Err(e) = fs::create_dir_all(&shell_dir) {
+        eprintln!("Warning: could not create {}: {}", shell_dir.display(), e);
+        return;
+    }
+
+    let dest = shell_dir.join(format!("shellmate.{}", shell_type));
+    match fs::write(&dest, content) {
+        Ok(()) => println!("Installed integration to {}", dest.display()),
+        Err(e) => eprintln!("Warning: could not write {}: {}", dest.display(), e),
+    }
+}
+
+fn setup_source_line(target_rc: &std::path::Path, shell_type: &str) {
+    let source_path = format!("$HOME/.shellmate/shell/shellmate.{}", shell_type);
+    let source_line = if shell_type == "sh" {
+        format!(". \"{}\"", source_path)
+    } else {
+        format!("source \"{}\"", source_path)
+    };
+
+    if let Ok(rc_content) = fs::read_to_string(target_rc) {
+        if rc_content.contains(&format!("shellmate.{}", shell_type)) {
+            println!(
+                "Shell integration already configured in {}",
+                target_rc.display()
+            );
+            return;
+        }
+    }
+
+    if let Some(parent) = target_rc.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    use std::io::Write as IoWrite;
+    match fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(target_rc)
+    {
+        Ok(mut file) => {
+            let _ = writeln!(file);
+            let _ = writeln!(file, "# ShellMate");
+            let _ = writeln!(file, "{}", source_line);
+            println!("Added shell integration to {}", target_rc.display());
+        }
+        Err(e) => eprintln!("Warning: could not write to {}: {}", target_rc.display(), e),
+    }
+}
+
+fn setup_config() {
+    let config_path = dirs::home_dir()
+        .map(|h| h.join(".shellmate").join("config.yaml"))
+        .unwrap_or_else(|| PathBuf::from(".shellmate/config.yaml"));
 
     if !config_path.exists() {
         let config = shellmate::config::Config::default();
@@ -151,37 +215,32 @@ fn cmd_install(shell: &str, config_only: bool) {
             Ok(()) => println!("Created default config at {}", config_path.display()),
             Err(e) => eprintln!("Warning: could not create config: {}", e),
         }
-        println!();
-        configure_ai();
     } else {
         println!("Config already exists at {}", config_path.display());
         match shellmate::config::Config::load() {
             Ok(config) => {
                 if !config.llm.is_configured() {
                     println!("AI provider not configured yet.");
-                    println!();
-                    configure_ai();
-                } else if prompt_yes_no("AI already configured, modify?", false) {
-                    println!();
-                    configure_ai();
                 }
             }
             Err(_) => {
-                println!("Could not load config, skipping AI configuration.");
+                println!("Could not load config.");
             }
         }
     }
-
-    println!();
-    println!(
-        "To complete installation, add this line to {}:",
-        target_rc.display()
-    );
-    println!("  source {}", integration_file.display());
     println!();
 }
 
 fn configure_ai() {
+    if let Ok(config) = shellmate::config::Config::load() {
+        if config.llm.is_configured() {
+            if !prompt_yes_no("AI already configured, modify?", false) {
+                return;
+            }
+            println!();
+        }
+    }
+
     println!("--- AI Provider Configuration ---");
     println!();
 

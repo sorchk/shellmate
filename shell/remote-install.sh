@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -eu
 
 REPO="sorchk/shellmate"
@@ -83,8 +83,6 @@ get_latest_version() {
     http_get "$_sm_api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
-# Compute SHA-256 hash of a file, returns lowercase hex digest on stdout.
-# Works on Linux (sha256sum), macOS (shasum -a 256), and Alpine/BusyBox.
 sha256_hash() {
     if command -v sha256sum >/dev/null 2>&1; then
         sha256sum "$1" | awk '{print $1}'
@@ -134,7 +132,6 @@ main() {
     _sm_latest_num="${_sm_version#v}"
     info "Latest version: $_sm_version"
 
-    # --- Version comparison ---
     _sm_action="install"
     _sm_installed_version=""
     if [ -x "$INSTALL_DIR/$BIN_NAME" ]; then
@@ -151,7 +148,6 @@ main() {
         info "Installing ShellMate $_sm_latest_num..."
     fi
 
-    # --- Download / install / update ---
     if [ "$_sm_action" != "skip" ]; then
         _sm_archive_name="shellmate_${_sm_version}_${_sm_os}_${_sm_arch}.tar.gz"
         _sm_download_url="https://github.com/${REPO}/releases/download/${_sm_version}/${_sm_archive_name}"
@@ -193,14 +189,11 @@ main() {
         info "Installed $INSTALL_DIR/$BIN_NAME"
     fi
 
-    # --- PATH setup ---
     setup_path "$_sm_shell_rc"
 
-    # --- Config setup ---
-    "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type" --config-only </dev/tty
+    "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type" </dev/tty
 
-    # --- Success message and next steps ---
-    echo ""
+    printf '\n'
     _sm_display_rc="$_sm_shell_rc"
     case "$_sm_shell_rc" in
         "$HOME"/*) _sm_display_rc="~/${_sm_shell_rc#"$HOME"/}" ;;
@@ -212,7 +205,8 @@ main() {
             echo ""
             info "Next steps:"
             echo "  1. Restart your terminal or run: source $_sm_display_rc"
-            echo "  2. Try it: shellmate generate \"list all files\" --shell $_sm_shell_type"
+            echo "  2. Try: @ai list all files in current directory"
+            echo "  3. Or type a description and press Ctrl+G"
             ;;
         update)
             info "ShellMate updated from v$_sm_installed_version to v$_sm_latest_num successfully!"

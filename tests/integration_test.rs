@@ -74,7 +74,7 @@ fn test_context_with_history() {
 fn test_prompt_built_correctly() {
     let sys = build_system_prompt();
     assert!(sys.contains("shell command generator"));
-    assert!(sys.contains("exactly one command"));
+    assert!(sys.contains("single line"));
 
     let context = ShellContext {
         current_directory: "/home/user".to_string(),

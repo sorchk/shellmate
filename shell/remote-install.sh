@@ -1,9 +1,4 @@
-#!/usr/bin/env bash
-# When piped via `curl ... | sh`, the shebang is ignored and sh (dash) runs
-# this script. Re-exec with bash if we're not already in bash.
-if [ -z "${BASH_VERSION:-}" ]; then
-    exec bash "$0" "$@"
-fi
+#!/bin/sh
 set -euo pipefail
 
 REPO="sorchk/shellmate"
@@ -16,9 +11,9 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
-error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
+info()  { echo "${GREEN}[INFO]${NC} $*"; }
+warn()  { echo "${YELLOW}[WARN]${NC} $*"; }
+error() { echo "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 detect_os() {
     local os
@@ -55,7 +50,7 @@ detect_shell_rc() {
     os="$(uname -s)"
     case "$(detect_shell_type)" in
         bash)
-            if [[ "$os" == "Darwin" ]]; then
+            if [ "$os" = "Darwin" ]; then
                 echo "$HOME/.bash_profile"
             else
                 echo "$HOME/.bashrc"
@@ -111,9 +106,9 @@ main() {
     local os arch version shell_type shell_rc
 
     echo ""
-    echo -e "${CYAN}╔══════════════════════════════════════╗"
-    echo -e "║       ShellMate Installer            ║"
-    echo -e "╚══════════════════════════════════════╝${NC}"
+    echo "${CYAN}╔══════════════════════════════════════╗"
+    echo "║       ShellMate Installer            ║"
+    echo "╚══════════════════════════════════════╝${NC}"
     echo ""
 
     os="$(detect_os)"

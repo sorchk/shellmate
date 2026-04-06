@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 
 REPO="sorchk/shellmate"
 BIN_NAME="shellmate"
@@ -183,7 +183,11 @@ main() {
     info "ShellMate $version_num installed successfully!"
     echo ""
     info "Next steps:"
-    echo "  1. Restart your terminal or run: source ${shell_rc/#$HOME\//~/}"
+    local display_rc="$shell_rc"
+    case "$shell_rc" in
+        "$HOME"/*) display_rc="~/${shell_rc#"$HOME"/}" ;;
+    esac
+    echo "  1. Restart your terminal or run: source $display_rc"
     echo "  2. Run: shellmate install --shell $shell_type"
     echo "  3. Or edit ~/.shellmate/config.yaml to configure your AI provider"
     echo ""

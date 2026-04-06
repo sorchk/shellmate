@@ -1,5 +1,3 @@
 target/
-other/
-dist/
+.opencode/
 AGENTS.md
-Cargo.lock

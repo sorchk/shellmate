@@ -129,7 +129,7 @@ setup_integration() {
 }
 
 setup_config() {
-    "$BIN_DIR/shellmate" install --shell "$(detect_shell)"
+    "$BIN_DIR/shellmate" install --shell "$(detect_shell)" --config-only
 }
 
 main() {

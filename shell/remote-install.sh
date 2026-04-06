@@ -196,27 +196,8 @@ main() {
     # --- PATH setup ---
     setup_path "$_sm_shell_rc"
 
-    # --- Config guidance ---
-    _sm_config_file="$HOME/.shellmate/config.yaml"
-    _sm_config_modified="no"
-    if [ ! -f "$_sm_config_file" ]; then
-        info "No configuration file found. Launching interactive setup..."
-        "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type"
-        _sm_config_modified="yes"
-    else
-        printf '%b' "${YELLOW}Configuration file exists at $_sm_config_file${NC}\n"
-        printf '%b' "Do you want to modify AI provider settings? (y/N): "
-        read -r _sm_answer
-        case "$_sm_answer" in
-            y|Y|yes|YES)
-                "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type"
-                _sm_config_modified="yes"
-                ;;
-            *)
-                info "Keeping existing configuration."
-                ;;
-        esac
-    fi
+    # --- Config setup ---
+    "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type" --config-only </dev/tty
 
     # --- Success message and next steps ---
     echo ""
@@ -231,10 +212,7 @@ main() {
             echo ""
             info "Next steps:"
             echo "  1. Restart your terminal or run: source $_sm_display_rc"
-            if [ "$_sm_config_modified" = "no" ]; then
-                echo "  2. Run: shellmate install --shell $_sm_shell_type"
-            fi
-            echo "  3. Try it: shellmate generate \"list all files\" --shell $_sm_shell_type"
+            echo "  2. Try it: shellmate generate \"list all files\" --shell $_sm_shell_type"
             ;;
         update)
             info "ShellMate updated from v$_sm_installed_version to v$_sm_latest_num successfully!"
@@ -244,13 +222,8 @@ main() {
             ;;
         skip)
             info "ShellMate is up to date (v$_sm_latest_num)."
-            if [ "$_sm_config_modified" = "yes" ]; then
-                echo ""
-                info "Restart your terminal for configuration changes to take effect."
-            else
-                echo ""
-                info "Everything is ready!"
-            fi
+            echo ""
+            info "Restart your terminal for configuration changes to take effect."
             ;;
     esac
     echo ""

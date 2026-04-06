@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# When piped via `curl ... | sh`, the shebang is ignored and sh (dash) runs
+# this script. Re-exec with bash if we're not already in bash.
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 REPO="sorchk/shellmate"

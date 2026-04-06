@@ -16,41 +16,36 @@ warn()  { printf '%b\n' "${YELLOW}[WARN]${NC} $*"; }
 error() { printf '%b\n' "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 detect_os() {
-    local os
-    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-    case "$os" in
+    case "$(uname -s | tr '[:upper:]' '[:lower:]')" in
         linux*)  echo "linux" ;;
         darwin*) echo "darwin" ;;
-        *)       error "Unsupported OS: $os" ;;
+        *)       error "Unsupported OS: $(uname -s)" ;;
     esac
 }
 
 detect_arch() {
-    local arch
-    arch="$(uname -m)"
-    case "$arch" in
+    case "$(uname -m)" in
         x86_64|amd64) echo "amd64" ;;
         aarch64|arm64) echo "arm64" ;;
-        *)             error "Unsupported architecture: $arch" ;;
+        *)             error "Unsupported architecture: $(uname -m)" ;;
     esac
 }
 
 detect_shell_type() {
-    local shell_name="${SHELL:-}"
-    shell_name="${shell_name##*/}"
-    case "$shell_name" in
-        bash|zsh|fish) echo "$shell_name" ;;
+    _sm_shell_name="${SHELL:-}"
+    _sm_shell_name="${_sm_shell_name##*/}"
+    case "$_sm_shell_name" in
+        bash|zsh|fish) echo "$_sm_shell_name" ;;
         dash|ash|sh)   echo "sh" ;;
         *)             echo "bash" ;;
     esac
 }
 
 detect_shell_rc() {
-    local os
-    os="$(uname -s)"
+    _sm_os="$(uname -s)"
     case "$(detect_shell_type)" in
         bash)
-            if [ "$os" = "Darwin" ]; then
+            if [ "$_sm_os" = "Darwin" ]; then
                 echo "$HOME/.bash_profile"
             else
                 echo "$HOME/.bashrc"
@@ -74,18 +69,18 @@ http_get() {
 }
 
 http_download() {
-    local url="$1"
-    local output="$2"
+    _sm_url="$1"
+    _sm_output="$2"
     if command -v curl >/dev/null 2>&1; then
-        curl -fSL -o "$output" "$url"
+        curl -fSL -o "$_sm_output" "$_sm_url"
     else
-        wget -qO "$output" "$url"
+        wget -qO "$_sm_output" "$_sm_url"
     fi
 }
 
 get_latest_version() {
-    local url="https://api.github.com/repos/${REPO}/releases/latest"
-    http_get "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/'
+    _sm_api_url="https://api.github.com/repos/${REPO}/releases/latest"
+    http_get "$_sm_api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 # Compute SHA-256 hash of a file, returns lowercase hex digest on stdout.
@@ -103,108 +98,161 @@ sha256_hash() {
 }
 
 setup_path() {
-    local shell_rc="$1"
-    local path_line='export PATH="$HOME/.shellmate/bin:$PATH"'
+    _sm_rc="$1"
+    _sm_path_line='export PATH="$HOME/.shellmate/bin:$PATH"'
 
-    if grep -qF '.shellmate/bin' "$shell_rc" 2>/dev/null; then
+    if grep -qF '.shellmate/bin' "$_sm_rc" 2>/dev/null; then
         return
     fi
 
-    mkdir -p "$(dirname "$shell_rc")"
-    printf '\n' >> "$shell_rc"
-    printf '%s\n' '# ShellMate' >> "$shell_rc"
-    printf '%s\n' "$path_line" >> "$shell_rc"
-    info "Added PATH to $shell_rc"
+    mkdir -p "$(dirname "$_sm_rc")"
+    printf '\n' >> "$_sm_rc"
+    printf '%s\n' '# ShellMate' >> "$_sm_rc"
+    printf '%s\n' "$_sm_path_line" >> "$_sm_rc"
+    info "Added PATH to $_sm_rc"
 }
 
 main() {
-    local os arch version shell_type shell_rc
-
     printf '\n'
     printf '%b\n' "${CYAN}╔══════════════════════════════════════╗"
     printf '%b\n' "║       ShellMate Installer            ║"
     printf '%b\n' "╚══════════════════════════════════════╝${NC}"
     printf '\n'
 
-    os="$(detect_os)"
-    arch="$(detect_arch)"
-    shell_type="$(detect_shell_type)"
-    shell_rc="$(detect_shell_rc)"
+    _sm_os="$(detect_os)"
+    _sm_arch="$(detect_arch)"
+    _sm_shell_type="$(detect_shell_type)"
+    _sm_shell_rc="$(detect_shell_rc)"
 
-    info "OS: $os  Arch: $arch  Shell: $shell_type"
+    info "OS: $_sm_os  Arch: $_sm_arch  Shell: $_sm_shell_type"
 
-    # Get latest version
     info "Fetching latest version..."
-    version="$(get_latest_version)"
-    if [ -z "$version" ]; then
+    _sm_version="$(get_latest_version)"
+    if [ -z "$_sm_version" ]; then
         error "Failed to determine latest version. Check your internet connection."
     fi
-    info "Latest version: $version"
+    _sm_latest_num="${_sm_version#v}"
+    info "Latest version: $_sm_version"
 
-    # Build download URL matching release workflow naming:
-    # shellmate_{version}_{os}_{arch}.tar.gz
-    local archive_name="shellmate_${version}_${os}_${arch}.tar.gz"
-    local download_url="https://github.com/${REPO}/releases/download/${version}/${archive_name}"
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
-
-    # Download
-    info "Downloading $archive_name..."
-    http_download "$download_url" "$tmp_dir/$archive_name" || {
-        error "Download failed. The archive for your platform ($os/$arch) may not exist.\n  URL: $download_url"
-    }
-
-    # Verify checksum if available
-    local checksum_url="https://github.com/${REPO}/releases/download/${version}/sha256sums.txt"
-    if http_get "$checksum_url" > "$tmp_dir/sha256sums.txt" 2>/dev/null; then
-        info "Verifying checksum..."
-        local expected
-        expected="$(grep "$archive_name" "$tmp_dir/sha256sums.txt" | awk '{print $1}')"
-        if [ -n "$expected" ]; then
-            local actual
-            if actual="$(sha256_hash "$tmp_dir/$archive_name")"; then
-                if [ "$expected" != "$actual" ]; then
-                    error "Checksum mismatch! Expected $expected, got $actual"
-                fi
-                info "Checksum OK"
-            else
-                warn "No SHA-256 tool found (sha256sum/shasum/openssl), skipping verification"
-            fi
-        else
-            warn "Checksum entry not found for $archive_name, skipping verification"
-        fi
-    else
-        warn "Checksums not available, skipping verification"
+    # --- Version comparison ---
+    _sm_action="install"
+    _sm_installed_version=""
+    if [ -x "$INSTALL_DIR/$BIN_NAME" ]; then
+        _sm_installed_version="$("$INSTALL_DIR/$BIN_NAME" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
     fi
 
-    # Extract
-    info "Extracting..."
-    tar xzf "$tmp_dir/$archive_name" -C "$tmp_dir" || error "Extraction failed. The archive may be corrupted."
+    if [ -n "$_sm_installed_version" ] && [ "$_sm_installed_version" = "$_sm_latest_num" ]; then
+        info "ShellMate $_sm_installed_version is already installed and up to date."
+        _sm_action="skip"
+    elif [ -n "$_sm_installed_version" ]; then
+        info "Updating ShellMate from $_sm_installed_version to $_sm_latest_num..."
+        _sm_action="update"
+    else
+        info "Installing ShellMate $_sm_latest_num..."
+    fi
 
-    # Install binary
-    mkdir -p "$INSTALL_DIR"
-    cp "$tmp_dir/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
-    chmod +x "$INSTALL_DIR/$BIN_NAME"
-    info "Installed $INSTALL_DIR/$BIN_NAME"
+    # --- Download / install / update ---
+    if [ "$_sm_action" != "skip" ]; then
+        _sm_archive_name="shellmate_${_sm_version}_${_sm_os}_${_sm_arch}.tar.gz"
+        _sm_download_url="https://github.com/${REPO}/releases/download/${_sm_version}/${_sm_archive_name}"
 
-    # Setup PATH
-    setup_path "$shell_rc"
+        _sm_tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "$_sm_tmp_dir"' EXIT
 
-    # Done
-    local version_num="${version#v}"
+        info "Downloading $_sm_archive_name..."
+        http_download "$_sm_download_url" "$_sm_tmp_dir/$_sm_archive_name" || {
+            error "Download failed. The archive for your platform ($_sm_os/$_sm_arch) may not exist.\n  URL: $_sm_download_url"
+        }
+
+        _sm_checksum_url="https://github.com/${REPO}/releases/download/${_sm_version}/sha256sums.txt"
+        if http_get "$_sm_checksum_url" > "$_sm_tmp_dir/sha256sums.txt" 2>/dev/null; then
+            info "Verifying checksum..."
+            _sm_expected="$(grep "$_sm_archive_name" "$_sm_tmp_dir/sha256sums.txt" | awk '{print $1}')"
+            if [ -n "$_sm_expected" ]; then
+                if _sm_actual="$(sha256_hash "$_sm_tmp_dir/$_sm_archive_name")"; then
+                    if [ "$_sm_expected" != "$_sm_actual" ]; then
+                        error "Checksum mismatch! Expected $_sm_expected, got $_sm_actual"
+                    fi
+                    info "Checksum OK"
+                else
+                    warn "No SHA-256 tool found (sha256sum/shasum/openssl), skipping verification"
+                fi
+            else
+                warn "Checksum entry not found for $_sm_archive_name, skipping verification"
+            fi
+        else
+            warn "Checksums not available, skipping verification"
+        fi
+
+        info "Extracting..."
+        tar xzf "$_sm_tmp_dir/$_sm_archive_name" -C "$_sm_tmp_dir" || error "Extraction failed. The archive may be corrupted."
+
+        mkdir -p "$INSTALL_DIR"
+        cp "$_sm_tmp_dir/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+        chmod +x "$INSTALL_DIR/$BIN_NAME"
+        info "Installed $INSTALL_DIR/$BIN_NAME"
+    fi
+
+    # --- PATH setup ---
+    setup_path "$_sm_shell_rc"
+
+    # --- Config guidance ---
+    _sm_config_file="$HOME/.shellmate/config.yaml"
+    _sm_config_modified="no"
+    if [ ! -f "$_sm_config_file" ]; then
+        info "No configuration file found. Launching interactive setup..."
+        "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type"
+        _sm_config_modified="yes"
+    else
+        printf '%b' "${YELLOW}Configuration file exists at $_sm_config_file${NC}\n"
+        printf '%b' "Do you want to modify AI provider settings? (y/N): "
+        read -r _sm_answer
+        case "$_sm_answer" in
+            y|Y|yes|YES)
+                "$INSTALL_DIR/$BIN_NAME" install --shell "$_sm_shell_type"
+                _sm_config_modified="yes"
+                ;;
+            *)
+                info "Keeping existing configuration."
+                ;;
+        esac
+    fi
+
+    # --- Success message and next steps ---
     echo ""
-    info "ShellMate $version_num installed successfully!"
-    echo ""
-    info "Next steps:"
-    local display_rc="$shell_rc"
-    case "$shell_rc" in
-        "$HOME"/*) display_rc="~/${shell_rc#"$HOME"/}" ;;
+    _sm_display_rc="$_sm_shell_rc"
+    case "$_sm_shell_rc" in
+        "$HOME"/*) _sm_display_rc="~/${_sm_shell_rc#"$HOME"/}" ;;
     esac
-    echo "  1. Restart your terminal or run: source $display_rc"
-    echo "  2. Run: shellmate install --shell $shell_type"
-    echo "  3. Or edit ~/.shellmate/config.yaml to configure your AI provider"
+
+    case "$_sm_action" in
+        install)
+            info "ShellMate v$_sm_latest_num installed successfully!"
+            echo ""
+            info "Next steps:"
+            echo "  1. Restart your terminal or run: source $_sm_display_rc"
+            if [ "$_sm_config_modified" = "no" ]; then
+                echo "  2. Run: shellmate install --shell $_sm_shell_type"
+            fi
+            echo "  3. Try it: shellmate generate \"list all files\" --shell $_sm_shell_type"
+            ;;
+        update)
+            info "ShellMate updated from v$_sm_installed_version to v$_sm_latest_num successfully!"
+            echo ""
+            info "Next steps:"
+            echo "  1. Restart your terminal or run: source $_sm_display_rc"
+            ;;
+        skip)
+            info "ShellMate is up to date (v$_sm_latest_num)."
+            if [ "$_sm_config_modified" = "yes" ]; then
+                echo ""
+                info "Restart your terminal for configuration changes to take effect."
+            else
+                echo ""
+                info "Everything is ready!"
+            fi
+            ;;
+    esac
     echo ""
 }
 

@@ -1,0 +1,150 @@
+name: Daily Changelog
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # UTC 00:00 daily
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to generate changelog for (YYYY-MM-DD). Defaults to yesterday.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Generate Daily Changelog
+    runs-on: ubuntu-latest
+    # Only run on the default branch, skip if no commits
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine date range
+        id: date
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            TARGET_DATE="${{ inputs.date }}"
+          else
+            TARGET_DATE=$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)
+          fi
+          echo "target=${TARGET_DATE}" >> "$GITHUB_OUTPUT"
+          echo "next=$(date -d "${TARGET_DATE} + 1 day" +%Y-%m-%d 2>/dev/null || date -v+1d -jf %Y-%m-%d "${TARGET_DATE}" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Check for commits
+        id: check
+        run: |
+          COMMIT_COUNT=$(git log --since="${{ steps.date.outputs.target }} 00:00:00" \
+            --until="${{ steps.date.outputs.next }} 00:00:00" \
+            --no-merges --oneline | wc -l)
+          echo "count=${COMMIT_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$COMMIT_COUNT" -eq 0 ]; then
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_commits=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate changelog entry
+        if: steps.check.outputs.has_commits == 'true'
+        id: changelog
+        run: |
+          TARGET_DATE="${{ steps.date.outputs.target }}"
+
+          # Get commits for the day
+          COMMITS=$(git log \
+            --since="${TARGET_DATE} 00:00:00" \
+            --until="${{ steps.date.outputs.next }} 00:00:00" \
+            --no-merges \
+            --pretty=format:"%h|%s|%an")
+
+          # Build categorized entry
+          FEATURES=""
+          FIXES=""
+          REFACTOR=""
+          DOCS=""
+          TESTS=""
+          CI=""
+          PERF=""
+          OTHER=""
+
+          while IFS='|' read -r hash msg author; do
+            [ -z "$hash" ] && continue
+            ENTRY="- ${msg} (${hash})"
+
+            case "$msg" in
+              feat:*|add:*) FEATURES="${FEATURES}\n${ENTRY}" ;;
+              fix:*|patch:*) FIXES="${FIXES}\n${ENTRY}" ;;
+              refactor:*|clean:*) REFACTOR="${REFACTOR}\n${ENTRY}" ;;
+              docs:*|readme:*) DOCS="${DOCS}\n${ENTRY}" ;;
+              test:*|tests:*) TESTS="${TESTS}\n${ENTRY}" ;;
+              ci:*|build:*|release:*) CI="${CI}\n${ENTRY}" ;;
+              perf:*|opt:*) PERF="${PERF}\n${ENTRY}" ;;
+              *) OTHER="${OTHER}\n${ENTRY}" ;;
+            esac
+          done <<< "$COMMITS"
+
+          # Build the entry
+          ENTRY="## ${TARGET_DATE}\n\n"
+
+          [ -n "$FEATURES" ] && ENTRY="${ENTRY}### ✨ Features\n${FEATURES}\n\n"
+          [ -n "$FIXES" ] && ENTRY="${ENTRY}### 🐛 Bug Fixes\n${FIXES}\n\n"
+          [ -n "$REFACTOR" ] && ENTRY="${ENTRY}### ♻️ Refactoring\n${REFACTOR}\n\n"
+          [ -n "$DOCS" ] && ENTRY="${ENTRY}### 📝 Documentation\n${DOCS}\n\n"
+          [ -n "$TESTS" ] && ENTRY="${ENTRY}### 🧪 Tests\n${TESTS}\n\n"
+          [ -n "$CI" ] && ENTRY="${ENTRY}### 🔧 CI/Build\n${CI}\n\n"
+          [ -n "$PERF" ] && ENTRY="${ENTRY}### ⚡ Performance\n${PERF}\n\n"
+          [ -n "$OTHER" ] && ENTRY="${ENTRY}### 🔄 Other Changes\n${OTHER}\n\n"
+
+          COMMIT_COUNT=$(echo "$COMMITS" | wc -l)
+          CONTRIBUTORS=$(echo "$COMMITS" | cut -d'|' -f3 | sort -u | tr '\n' ', ' | sed 's/,$//')
+          ENTRY="${ENTRY}**Commits:** ${COMMIT_COUNT} | **Contributors:** ${CONTRIBUTORS}\n\n---\n\n"
+
+          # Write to temp file
+          echo -e "$ENTRY" > /tmp/changelog_entry.md
+          echo "entry_file=/tmp/changelog_entry.md" >> "$GITHUB_OUTPUT"
+
+      - name: Update CHANGELOG.md
+        if: steps.check.outputs.has_commits == 'true'
+        run: |
+          # Create CHANGELOG.md if it doesn't exist
+          if [ ! -f CHANGELOG.md ]; then
+            cat > CHANGELOG.md <<'HEADER'
+          # Changelog
+
+          All notable changes to ShellMate are documented here.
+
+          ---
+
+          HEADER
+          fi
+
+          # Insert new entry after the header (before first ## or at end)
+          # Find the line number of the first "##" occurrence
+          FIRST_ENTRY=$(grep -n "^## " CHANGELOG.md | head -1 | cut -d: -f1)
+
+          if [ -n "$FIRST_ENTRY" ]; then
+            # Insert before the first existing entry
+            head -n $((FIRST_ENTRY - 1)) CHANGELOG.md > /tmp/header.md
+            cat /tmp/header.md /tmp/changelog_entry.md > /tmp/new_changelog.md
+            tail -n +$FIRST_ENTRY CHANGELOG.md >> /tmp/new_changelog.md
+          else
+            # No existing entries, append
+            cat CHANGELOG.md /tmp/changelog_entry.md > /tmp/new_changelog.md
+          fi
+
+          mv /tmp/new_changelog.md CHANGELOG.md
+
+      - name: Commit and push
+        if: steps.check.outputs.has_commits == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: update CHANGELOG.md for ${{ steps.date.outputs.target }}"
+          git push

@@ -1,0 +1,187 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            os: linux
+            arch: amd64
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            os: linux
+            arch: arm64
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            os: darwin
+            arch: amd64
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            os: darwin
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux arm64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> "$GITHUB_ENV"
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          ARCHIVE_NAME="shellmate_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}"
+          BIN_NAME="shellmate"
+          STAGING_DIR="$(mktemp -d)"
+
+          cp "target/${{ matrix.target }}/release/${BIN_NAME}" "${STAGING_DIR}/"
+          [ -f LICENSE ] && cp LICENSE "${STAGING_DIR}/"
+          [ -f README.md ] && cp README.md "${STAGING_DIR}/"
+
+          mkdir -p dist
+          (cd "${STAGING_DIR}" && tar czf - ${BIN_NAME} $(ls LICENSE README.md 2>/dev/null || true)) > "dist/${ARCHIVE_NAME}.tar.gz"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          # Build changelog from git log between previous tag and HEAD
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+            COMPARE_LINK="**Full Changelog:** https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}"
+          else
+            RANGE="HEAD"
+            COMPARE_LINK=""
+          fi
+
+          # Get commits and categorize
+          COMMITS=$(git log $RANGE --no-merges --pretty=format:"%h|%s|%an" 2>/dev/null || echo "")
+
+          if [ -z "$COMMITS" ]; then
+            BODY="No changes found in this release."
+          else
+            BODY="## What's Changed\n\n"
+
+            # Categorize commits
+            FEATURES=""
+            FIXES=""
+            REFACTOR=""
+            DOCS=""
+            TESTS=""
+            CI=""
+            PERF=""
+            OTHER=""
+
+            while IFS='|' read -r hash msg author; do
+              [ -z "$hash" ] && continue
+              ENTRY="- ${msg} (${hash})"
+
+              case "$msg" in
+                feat:*|add:*) FEATURES="${FEATURES}\n${ENTRY}" ;;
+                fix:*|patch:*) FIXES="${FIXES}\n${ENTRY}" ;;
+                refactor:*|clean:*) REFACTOR="${REFACTOR}\n${ENTRY}" ;;
+                docs:*|readme:*) DOCS="${DOCS}\n${ENTRY}" ;;
+                test:*|tests:*) TESTS="${TESTS}\n${ENTRY}" ;;
+                ci:*|build:*|release:*) CI="${CI}\n${ENTRY}" ;;
+                perf:*|opt:*) PERF="${PERF}\n${ENTRY}" ;;
+                *) OTHER="${OTHER}\n${ENTRY}" ;;
+              esac
+            done <<< "$COMMITS"
+
+            [ -n "$FEATURES" ] && BODY="${BODY}### ✨ Features\n${FEATURES}\n\n"
+            [ -n "$FIXES" ] && BODY="${BODY}### 🐛 Bug Fixes\n${FIXES}\n\n"
+            [ -n "$REFACTOR" ] && BODY="${BODY}### ♻️ Refactoring\n${REFACTOR}\n\n"
+            [ -n "$DOCS" ] && BODY="${BODY}### 📝 Documentation\n${DOCS}\n\n"
+            [ -n "$TESTS" ] && BODY="${BODY}### 🧪 Tests\n${TESTS}\n\n"
+            [ -n "$CI" ] && BODY="${BODY}### 🔧 CI/Build\n${CI}\n\n"
+            [ -n "$PERF" ] && BODY="${BODY}### ⚡ Performance\n${PERF}\n\n"
+            [ -n "$OTHER" ] && BODY="${BODY}### 🔄 Other Changes\n${OTHER}\n\n"
+
+            COMMIT_COUNT=$(echo "$COMMITS" | wc -l)
+            CONTRIBUTORS=$(echo "$COMMITS" | cut -d'|' -f3 | sort -u | tr '\n' ', ' | sed 's/,$//')
+            BODY="${BODY}---\n\n**Commits:** ${COMMIT_COUNT} | **Contributors:** ${CONTRIBUTORS}\n"
+
+            if [ -n "$COMPARE_LINK" ]; then
+              BODY="${BODY}\n${COMPARE_LINK}"
+            fi
+          fi
+
+          # Write to file for multiline GITHUB_OUTPUT
+          echo -e "$BODY" > /tmp/release_body.md
+          echo "file=/tmp/release_body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: ${{ steps.changelog.outputs.file }}
+          files: |
+            dist/*.tar.gz
+            dist/sha256sums.txt

@@ -11,9 +11,9 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-info()  { echo "${GREEN}[INFO]${NC} $*"; }
-warn()  { echo "${YELLOW}[WARN]${NC} $*"; }
-error() { echo "${RED}[ERROR]${NC} $*" >&2; exit 1; }
+info()  { printf '%b\n' "${GREEN}[INFO]${NC} $*"; }
+warn()  { printf '%b\n' "${YELLOW}[WARN]${NC} $*"; }
+error() { printf '%b\n' "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
 detect_os() {
     local os
@@ -88,6 +88,20 @@ get_latest_version() {
     http_get "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
+# Compute SHA-256 hash of a file, returns lowercase hex digest on stdout.
+# Works on Linux (sha256sum), macOS (shasum -a 256), and Alpine/BusyBox.
+sha256_hash() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "$1" | awk '{print $NF}'
+    else
+        return 1
+    fi
+}
+
 setup_path() {
     local shell_rc="$1"
     local path_line='export PATH="$HOME/.shellmate/bin:$PATH"'
@@ -96,20 +110,21 @@ setup_path() {
         return
     fi
 
-    echo '' >> "$shell_rc"
-    echo '# ShellMate' >> "$shell_rc"
-    echo "$path_line" >> "$shell_rc"
+    mkdir -p "$(dirname "$shell_rc")"
+    printf '\n' >> "$shell_rc"
+    printf '%s\n' '# ShellMate' >> "$shell_rc"
+    printf '%s\n' "$path_line" >> "$shell_rc"
     info "Added PATH to $shell_rc"
 }
 
 main() {
     local os arch version shell_type shell_rc
 
-    echo ""
-    echo "${CYAN}╔══════════════════════════════════════╗"
-    echo "║       ShellMate Installer            ║"
-    echo "╚══════════════════════════════════════╝${NC}"
-    echo ""
+    printf '\n'
+    printf '%b\n' "${CYAN}╔══════════════════════════════════════╗"
+    printf '%b\n' "║       ShellMate Installer            ║"
+    printf '%b\n' "╚══════════════════════════════════════╝${NC}"
+    printf '\n'
 
     os="$(detect_os)"
     arch="$(detect_arch)"
@@ -145,28 +160,28 @@ main() {
     local checksum_url="https://github.com/${REPO}/releases/download/${version}/sha256sums.txt"
     if http_get "$checksum_url" > "$tmp_dir/sha256sums.txt" 2>/dev/null; then
         info "Verifying checksum..."
-        (cd "$tmp_dir" && sha256sum -c --ignore-missing sha256sums.txt) >/dev/null 2>&1 || {
-            # Fallback: grep only the line for our archive and verify
-            local expected
-            expected="$(grep "$archive_name" "$tmp_dir/sha256sums.txt" | awk '{print $1}')"
-            if [ -n "$expected" ]; then
-                local actual
-                actual="$(sha256sum "$tmp_dir/$archive_name" | awk '{print $1}')"
+        local expected
+        expected="$(grep "$archive_name" "$tmp_dir/sha256sums.txt" | awk '{print $1}')"
+        if [ -n "$expected" ]; then
+            local actual
+            if actual="$(sha256_hash "$tmp_dir/$archive_name")"; then
                 if [ "$expected" != "$actual" ]; then
                     error "Checksum mismatch! Expected $expected, got $actual"
                 fi
+                info "Checksum OK"
             else
-                warn "Checksum entry not found for $archive_name, skipping verification"
+                warn "No SHA-256 tool found (sha256sum/shasum/openssl), skipping verification"
             fi
-        }
-        info "Checksum OK"
+        else
+            warn "Checksum entry not found for $archive_name, skipping verification"
+        fi
     else
         warn "Checksums not available, skipping verification"
     fi
 
     # Extract
     info "Extracting..."
-    tar xzf "$tmp_dir/$archive_name" -C "$tmp_dir"
+    tar xzf "$tmp_dir/$archive_name" -C "$tmp_dir" || error "Extraction failed. The archive may be corrupted."
 
     # Install binary
     mkdir -p "$INSTALL_DIR"

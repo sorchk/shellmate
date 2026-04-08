@@ -4,6 +4,15 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-04-08 v0.1.8
+
+1. 发布(release): 发布 v0.1.8 版本 / Release v0.1.8
+2. 修复(fix): 修复 Alt 键绑定格式（bash: \M- → \e, zsh: ^[[ → ^[）/ Fix Alt key binding format for bash and zsh
+3. 修复(fix): 调整安装流程顺序，先完成配置再设置 shell 集成 / Adjust install flow order: configure before shell integration setup
+4. 修复(fix): 修复小的文字错误 / Fix minor text errors
+
+---
+
 ## 2026-04-08 v0.1.7
 
 1. 发布(release): 发布 v0.1.7 版本 / Release v0.1.7

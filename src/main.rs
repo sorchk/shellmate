@@ -317,14 +317,14 @@ fn configure_ai() {
                 "4" => "gemini-generate-content",
                 _ => "custom",
             };
-            let name = prompt_input("请输入 Provider 名称:", None);
+            let name = prompt_input("请输入 Provider 名称", None);
             (name, None, None, Some(api_type_str.to_string()))
         }
     };
 
     let is_custom_api = default_api_type.as_deref() == Some("custom");
     let base_url = if is_custom_api {
-        prompt_input("请输入完整 endpoint URL:", None)
+        prompt_input("请输入完整 endpoint URL", None)
     } else {
         prompt_input("请输入 Base URL", default_base_url)
     };

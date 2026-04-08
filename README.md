@@ -207,7 +207,7 @@ ShellMate 是一个命令行工具，利用 AI 将自然语言描述转换为 sh
 ## 功能特性
 
 - **自然语言转命令** — 用自然语言描述你想要的操作，即可获得可直接执行的 shell 命令
-- **多模型支持** — 支持 OpenAI、Anthropic、Gemini、Ollama、MiniMax 及自定义端点
+- **多模型支持** — 支持 OpenAI、Anthropic、Gemini、Ollama 及自定义端点
 - **安全优先** — 内置基于关键词匹配的命令黑名单，阻止危险操作（`rm -rf`、`mkfs`、`dd`、`curl | sh`、Fork 炸弹等）
 - **Shell 集成** — 支持 bash、zsh、sh、fish，通过触发前缀（`@ai`、`#ai`、`/ai`）或快捷键（`Ctrl+G`）使用
 - **上下文感知** — 自动收集 shell 环境、操作系统、工作目录和命令历史，生成更准确的命令

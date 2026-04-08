@@ -136,10 +136,10 @@ fn cmd_install(shell: &str, config_only: bool) {
     println!("RC file: {}", target_rc.display());
     println!();
 
-    setup_shell_integration(&home, &shell_type);
-    setup_source_line(&target_rc, &shell_type);
     setup_config();
     configure_ai();
+    setup_shell_integration(&home, &shell_type);
+    setup_source_line(&target_rc, &shell_type);
 
     println!();
 }

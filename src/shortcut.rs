@@ -25,7 +25,7 @@ pub fn parse_shortcut(shortcut: &str) -> Result<(String, String), AppError> {
 
     let (bash_key, zsh_key) = match modifier {
         "ctrl" => (format!("\\C-{}", key_lower), format!("^{}", key_upper)),
-        "alt" => (format!("\\M-{}", key_lower), format!("^[[{}", key_upper)),
+        "alt" => (format!("\\e{}", key_lower), format!("^[{}", key_upper)),
         _ => unreachable!(),
     };
 

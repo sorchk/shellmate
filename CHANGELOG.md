@@ -4,6 +4,15 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-04-08 v0.1.7
+
+1. 发布(release): 发布 v0.1.7 版本 / Release v0.1.7
+2. 新增(feature): 快捷键可配置 — 支持 Ctrl+Key / Alt+Key 格式，修改 config.yaml 后重新 install 即可生效 / Configurable keyboard shortcut — supports Ctrl+Key / Alt+Key formats, apply by reinstalling after editing config.yaml
+3. 其他(chore): 新增 shortcut.rs 模块和 15 个测试用例 / Add shortcut.rs module with 15 test cases
+4. 其他(chore): 文档重组为 en/zh 双语子目录，新增快捷键配置说明 / Restructure docs into en/zh bilingual subdirectories, add shortcut config docs
+
+---
+
 ## 2026-04-07
 
 ### 📝 Documentation
@@ -48,5 +57,3 @@ All notable changes to ShellMate are documented here.
 **Commits:** 16 | **Contributors:** sorc
 
 ---
-
-

@@ -154,13 +154,31 @@ fn setup_shell_integration(home: &std::path::Path, shell_type: &str) {
         _ => return,
     };
 
+    let config = shellmate::config::Config::load_or_default();
+    let shortcut = config.trigger.shortcut.trim().to_string();
+
+    let final_content = if shell_type == "sh" {
+        content.to_string()
+    } else {
+        match shellmate::shortcut::parse_shortcut(&shortcut) {
+            Ok((bash_key, zsh_key)) => {
+                shellmate::shortcut::apply_shortcut_to_script(content, &bash_key, &zsh_key)
+            }
+            Err(e) => {
+                eprintln!("Warning: {} — using default Ctrl+G", e);
+                let (bash_key, zsh_key) = shellmate::shortcut::parse_shortcut("Ctrl+G").unwrap();
+                shellmate::shortcut::apply_shortcut_to_script(content, &bash_key, &zsh_key)
+            }
+        }
+    };
+
     if let Err(e) = fs::create_dir_all(&shell_dir) {
         eprintln!("Warning: could not create {}: {}", shell_dir.display(), e);
         return;
     }
 
     let dest = shell_dir.join(format!("shellmate.{}", shell_type));
-    match fs::write(&dest, content) {
+    match fs::write(&dest, final_content) {
         Ok(()) => println!("Installed integration to {}", dest.display()),
         Err(e) => eprintln!("Warning: could not write {}: {}", dest.display(), e),
     }

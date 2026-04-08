@@ -25,9 +25,7 @@ pub fn create_provider(config: &LlmConfig) -> Result<Box<dyn LlmProvider>, AppEr
         "gemini-generate-content" => Ok(Box::new(gemini::GeminiProvider::new(config)?)),
         _ => match config.provider.to_lowercase().as_str() {
             "ollama" => Ok(Box::new(openai::OpenAiProvider::new(config)?)),
-            "anthropic" | "kimi-coding" | "minimax" => {
-                Ok(Box::new(anthropic::AnthropicProvider::new(config)?))
-            }
+            "anthropic" => Ok(Box::new(anthropic::AnthropicProvider::new(config)?)),
             "gemini" => Ok(Box::new(gemini::GeminiProvider::new(config)?)),
             _ => Ok(Box::new(openai::OpenAiProvider::new(config)?)),
         },

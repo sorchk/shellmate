@@ -6,4 +6,5 @@ pub mod error;
 pub mod history;
 pub mod llm;
 pub mod security;
+pub mod shortcut;
 pub mod ui;

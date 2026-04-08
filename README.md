@@ -1,23 +1,28 @@
+[English](#english) | [中文](#中文)
+
+---
+
+<a id="english"></a>
+
 <div align="center">
 
 # ShellMate
 
 **AI-Powered Shell Command Assistant**
 
-[English](#features) | [中文](#功能特性)
-
+[![Version](https://img.shields.io/badge/version-0.1.6-blue.svg)](CHANGELOG.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
 
 </div>
 
-ShellMate is a command-line tool that translates natural language descriptions into shell commands using AI. It supports multiple LLM providers, includes a built-in security checker to block dangerous commands, and integrates seamlessly with your shell.
+ShellMate is a command-line tool that translates natural language descriptions into shell commands using AI. It supports multiple LLM providers, includes a built-in security checker to block dangerous commands, and integrates seamlessly with bash, zsh, sh, and fish.
 
 ## Features
 
 - **Natural Language to Command** — Describe what you want in plain language and get a ready-to-run shell command
 - **Multi-Provider Support** — OpenAI, Anthropic, Gemini, Ollama, and custom endpoints
-- **Security-First** — Built-in keyword-based command blocklist prevents dangerous operations (`rm -rf`, `mkfs`, `dd`, etc.)
+- **Security-First** — Built-in keyword-based command blocklist prevents dangerous operations (`rm -rf`, `mkfs`, `dd`, `curl | sh`, fork bombs, etc.)
 - **Shell Integration** — Works with bash, zsh, sh, and fish via trigger prefixes (`@ai`, `#ai`, `/ai`) or keyboard shortcut (`Ctrl+G`)
 - **Context-Aware** — Automatically gathers shell environment, OS, working directory, and command history for accurate results
 - **Lightweight Model Friendly** — Works great with small local models like Qwen3.5-4B via Ollama — no GPU required
@@ -26,21 +31,29 @@ ShellMate is a command-line tool that translates natural language descriptions i
 
 ## Quick Start
 
-### Install from Source
+### Install
+
+#### Option A: Remote Install (Recommended)
+
+```bash
+curl -fsSL https://shai.apix.fun | sh
+```
+
+Downloads pre-built binary, configures PATH, and sets up shell integration automatically.
+
+#### Option B: Build from Source
 
 ```bash
 git clone https://github.com/sorchk/shellmate.git
 cd shellmate
-cargo build --release
+bash shell/install.sh
 ```
-
-The binary will be at `target/release/shellmate`.
 
 ### Configure AI Provider
 
 #### Option A: Local Model (Recommended)
 
-ShellMate's prompt is optimized for shell command generation — even a 4B parameter model produces excellent results. no API costs.
+ShellMate's prompt is optimized for shell command generation — even a 4B parameter model produces excellent results, with no API costs.
 
 ```bash
 # 1. Install and start Ollama
@@ -50,9 +63,10 @@ ollama serve
 ollama pull qwen3.5:4b
 
 # 3. Configure ShellMate
+shellmate install --config-only
 ```
 
-Edit `~/.shellmate/config.yaml`:
+Select Ollama in the interactive prompt. Configuration is stored at `~/.shellmate/config.yaml`:
 
 ```yaml
 llm:
@@ -70,41 +84,55 @@ That's it — everything runs locally, no API key needed.
 shellmate install --shell bash
 ```
 
-This launches an interactive setup to choose your AI provider and enter credentials. Configuration is stored at `~/.shellmate/config.yaml`.
+This launches an interactive setup to choose your AI provider and enter credentials.
 
-You can also edit the config directly:
+## Usage
 
-```yaml
-llm:
-  provider: openai
-  model: gpt-4-turbo
-  api_key: sk-...
-  base_url: https://api.openai.com
-```
+After installation, you can invoke ShellMate directly in your shell.
 
-### Shell Integration
+### Trigger Prefix
 
-Add this line to your `~/.bashrc` (or `~/.zshrc` for zsh):
-
-```bash
-source /path/to/shellmate/shell/shellmate.bash
-```
-
-Then use ShellMate directly in your shell:
+Type a prefix followed by your request in natural language. Press Enter to generate the command:
 
 ```bash
 $ @ai list all docker images
 docker images -a
 ```
 
-## Usage
+```bash
+$ @ai find all .log files larger than 100MB
+find / -name "*.log" -size +100M
+```
 
 ```bash
-# Generate a command from natural language
-shellmate generate "find all .log files larger than 100MB" --shell bash
+$ @ai kill the process listening on port 8080
+lsof -ti:8080 | xargs kill -9
+```
 
-# Check if a command passes security rules
+Supported prefixes: `@ai`, `#ai`, `/ai` — all work the same way.
+
+### Keyboard Shortcut
+
+Type your request, then press `Ctrl+G` (default, configurable) to submit:
+
+```bash
+$ show disk usage of current directory<Ctrl+G>
+du -sh .
+```
+
+### Confirm or Cancel
+
+After the command is generated, press `Enter` to execute or `Esc` to cancel.
+
+### Direct CLI Usage
+
+```bash
+# Generate a command
+shellmate generate "list all files" --shell bash
+
+# Check if a command is safe
 shellmate check "rm -rf /"
+# Output: BLOCKED: rm -rf /
 
 # View current configuration
 shellmate config
@@ -118,14 +146,14 @@ shellmate install --shell zsh
 | Provider | Config Value | Default Endpoint |
 |----------|-------------|-----------------|
 | OpenAI | `openai` | `https://api.openai.com` |
-| Anthropic | `anthropic` | `https://api.anthropic.com` |
+| Anthropic | `anthropic` | `https://api.anthropics.com` |
 | Gemini | `gemini` | `https://generativelanguage.googleapis.com` |
 | Ollama | `ollama` | `http://localhost:11434` |
-| Kimi Coding | `kimi-coding` | user-defined |
-| MiniMax | `minimax` | user-defined |
 | Custom | any | user-defined |
 
 Custom providers support OpenAI-compatible, Anthropic-compatible, and Gemini-compatible API formats.
+
+For more advanced usage, see the [User Guide](docs/en/GUIDE.md) | [中文版](docs/zh/GUIDE.md).
 
 ## Security
 
@@ -139,83 +167,20 @@ ShellMate blocks dangerous commands by default, including:
 - `halt`, `shutdown`, `reboot`, `poweroff`, `init 0/1/6`
 - Fork bombs `:(){:|:&};:`
 - `-delete`, `-exec`, `--no-preserve-root`, `> /dev/`
+- `apt remove`, `apt purge`
 
-You can customize the blocklist in `~/.shellmate/config.yaml`:
+You can customize the blocklist in `~/.shellmate/config.yaml`. See the [Security Policy](docs/en/SECURITY.md) | [安全文档](docs/zh/SECURITY.md) for details.
 
-```yaml
-security:
-  mode: strict
-  block_patterns:
-    - "rm"
-    - "mkfs"
-    # ... add your own keywords
-```
+## Documentation / 文档
 
-## Configuration
+- 📖 [User Guide / 使用指南](docs/en/GUIDE.md) | [中文](docs/zh/GUIDE.md)
+- 🛠 [Development Guide / 开发文档](docs/en/DEVELOPMENT.md) | [中文](docs/zh/DEVELOPMENT.md)
+- 🔒 [Security Policy / 安全文档](docs/en/SECURITY.md) | [中文](docs/zh/SECURITY.md)
+- 📋 [Changelog / 变更日志](CHANGELOG.md)
 
-Config file: `~/.shellmate/config.yaml`
+## Contributors
 
-```yaml
-trigger:
-  prefixes: ["@ai", "#ai", "/ai"]
-  shortcut: "Ctrl+G"
-
-llm:
-  provider: openai
-  model: gpt-4-turbo
-  api_key: sk-...
-  base_url: https://api.openai.com
-  timeout: 30
-  max_tokens: null
-
-security:
-  mode: strict
-  block_patterns: [...]
-
-ui:
-  position: top
-  success_duration: 2600
-```
-
-## Development
-
-```bash
-# Build
-cargo build
-
-# Run tests
-cargo test
-
-# Lint
-cargo clippy -- -D warnings
-
-# Format
-cargo fmt
-```
-
-## Project Structure
-
-```
-src/
-  main.rs          CLI entrypoint (clap)
-  cli.rs           CLI definitions
-  config.rs        YAML config management
-  core.rs          CoreEngine orchestrator
-  command.rs       Prompt building & output sanitization
-  context.rs       Shell environment detection
-  security.rs      Regex-based command blocklist
-  history.rs       Shell history parsing
-  ui.rs            Terminal status messages
-  error.rs         Custom error types
-  llm/             LLM provider implementations
-    mod.rs         Provider trait & factory
-    openai.rs      OpenAI / Ollama provider
-    anthropic.rs   Anthropic provider
-    gemini.rs      Gemini provider
-    types.rs       Shared API types
-tests/             Integration tests
-shell/             Shell integration scripts
-```
+- sorc
 
 ## License
 
@@ -223,35 +188,58 @@ Licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
+<a id="中文"></a>
+
 <div align="center">
 
-## 功能特性
+# ShellMate
+
+**AI 驱动的 Shell 命令助手**
+
+[![版本](https://img.shields.io/badge/版本-0.1.6-blue.svg)](CHANGELOG.md)
+[![许可证: Apache 2.0](https://img.shields.io/badge/许可证-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
 
 </div>
 
-ShellMate 是一个命令行工具，利用 AI 将自然语言描述转换为 shell 命令。支持多种大语言模型提供商，内置安全检查器阻止危险命令，并与你的 shell 无缝集成。
+ShellMate 是一个命令行工具，利用 AI 将自然语言描述转换为 shell 命令。支持多种大语言模型提供商，内置安全检查器阻止危险命令，并与 bash、zsh、sh 和 fish 无缝集成。
+
+## 功能特性
 
 - **自然语言转命令** — 用自然语言描述你想要的操作，即可获得可直接执行的 shell 命令
-- **多模型支持** — 支持 OpenAI、Anthropic、Gemini、Ollama 及自定义端点
-- **安全优先** — 内置基于关键词匹配的命令黑名单，阻止危险操作（`rm`、`mkfs`、`dd` 等）
+- **多模型支持** — 支持 OpenAI、Anthropic、Gemini、Ollama、MiniMax 及自定义端点
+- **安全优先** — 内置基于关键词匹配的命令黑名单，阻止危险操作（`rm -rf`、`mkfs`、`dd`、`curl | sh`、Fork 炸弹等）
 - **Shell 集成** — 支持 bash、zsh、sh、fish，通过触发前缀（`@ai`、`#ai`、`/ai`）或快捷键（`Ctrl+G`）使用
 - **上下文感知** — 自动收集 shell 环境、操作系统、工作目录和命令历史，生成更准确的命令
 - **轻量模型友好** — 仅需 Qwen3.5-4B 等小模型即可优雅运行，无需 GPU，零成本
 - **隐私友好** — 支持通过 Ollama 使用完全本地化的模型，数据不会离开你的机器
 - **零异步** — 纯同步 Rust 编写，启动快速，无运行时开销
 
-### 快速开始
+## 快速开始
+
+### 安装
+
+#### 方式一：远程安装（推荐）
 
 ```bash
-# 克隆并编译
-git clone https://github.com/your-username/shellmate.git
-cd shellmate
-cargo build --release
+curl -fsSL https://shai.apix.fun | sh
 ```
+
+自动下载预编译二进制文件，配置 PATH 环境变量，并设置 Shell 集成。
+
+#### 方式二：从源码构建
+
+```bash
+git clone https://github.com/sorchk/shellmate.git
+cd shellmate
+bash shell/install.sh
+```
+
+### 配置 AI 提供商
 
 #### 方式一：本地模型（推荐）
 
-ShellMate 的提示词专为 shell 命令生成优化，即使 4B 参数的小模型也能产生优秀结果。无需 API 费用。
+ShellMate 的提示词专为 shell 命令生成优化，即使 4B 参数的小模型也能产生优秀结果，无需 API 费用。
 
 ```bash
 # 1. 安装并启动 Ollama
@@ -259,9 +247,12 @@ ollama serve
 
 # 2. 拉取模型
 ollama pull qwen3.5:4b
+
+# 3. 配置 ShellMate
+shellmate install --config-only
 ```
 
-编辑 `~/.shellmate/config.yaml`：
+在交互提示中选择 Ollama。配置保存在 `~/.shellmate/config.yaml`：
 
 ```yaml
 llm:
@@ -276,52 +267,81 @@ llm:
 #### 方式二：云端提供商
 
 ```bash
-# 交互式配置 AI 提供商
-./target/release/shellmate install --shell bash
+shellmate install --shell bash
 ```
 
-#### Shell 集成
+启动交互式配置，选择 AI 提供商并输入凭据。
 
-将以下内容添加到 `~/.bashrc`（zsh 用户添加到 `~/.zshrc`）：
+## 使用方法
 
-```bash
-source /path/to/shellmate/shell/shellmate.bash
-```
+安装完成后，可以直接在 shell 中调用 ShellMate。
 
-在 shell 中直接使用：
+### 触发前缀
+
+输入前缀加自然语言描述，按回车即可生成命令：
 
 ```bash
 $ @ai 列出所有 Docker 镜像
 docker images -a
 ```
 
-### 命令行用法
+```bash
+$ @ai 查找所有大于 100MB 的 .log 文件
+find / -name "*.log" -size +100M
+```
 
 ```bash
-# 从自然语言生成命令
-shellmate generate "查找所有大于 100MB 的 .log 文件" --shell bash
+$ @ai 杀掉占用 8080 端口的进程
+lsof -ti:8080 | xargs kill -9
+```
 
-# 检查命令是否通过安全规则
+支持的前缀：`@ai`、`#ai`、`/ai`，效果相同。
+
+### 快捷键
+
+输入描述后按 `Ctrl+G`（默认，可配置）提交：
+
+```bash
+$ 显示当前目录磁盘占用<Ctrl+G>
+du -sh .
+```
+
+### 确认或取消
+
+命令生成后，按 `Enter` 执行，按 `Esc` 取消。
+
+### 直接使用 CLI
+
+```bash
+# 生成命令
+shellmate generate "列出所有文件" --shell bash
+
+# 安全检查
 shellmate check "rm -rf /"
+# 输出: BLOCKED: rm -rf /
 
 # 查看当前配置
 shellmate config
 
-# 安装 shell 集成
+# 安装 Shell 集成
 shellmate install --shell zsh
 ```
 
-### 支持的 AI 提供商
+## 支持的 AI 提供商
 
 | 提供商 | 配置值 | 默认地址 |
 |--------|--------|----------|
 | OpenAI | `openai` | `https://api.openai.com` |
-| Anthropic | `anthropic` | `https://api.anthropic.com` |
+| Anthropic | `anthropic` | `https://api.anthropics.com` |
 | Gemini | `gemini` | `https://generativelanguage.googleapis.com` |
 | Ollama（本地） | `ollama` | `http://localhost:11434` |
 | 自定义 | 任意 | 用户自定义 |
 
-### 安全机制
+自定义提供商支持 OpenAI 兼容、Anthropic 兼容和 Gemini 兼容的 API 格式。
+
+更多高级用法请参阅[使用指南](docs/zh/GUIDE.md) | [English](docs/en/GUIDE.md)。
+
+## 安全机制
 
 ShellMate 默认阻止以下危险命令：
 
@@ -333,18 +353,10 @@ ShellMate 默认阻止以下危险命令：
 - `halt`、`shutdown`、`reboot`、`poweroff`、`init 0/1/6`
 - Fork 炸弹 `:(){:|:&};:`
 - `-delete`、`-exec`、`--no-preserve-root`、`> /dev/`
+- `apt remove`、`apt purge`
 
-你可以在 `~/.shellmate/config.yaml` 中自定义黑名单规则。
+你可以在 `~/.shellmate/config.yaml` 中自定义黑名单规则。详见[安全文档](docs/zh/SECURITY.md) | [Security Policy](docs/en/SECURITY.md)。
 
-### 开发
-
-```bash
-cargo build          # 编译
-cargo test           # 运行测试
-cargo clippy -- -D warnings  # 代码检查
-cargo fmt            # 格式化
-```
-
-### 许可证
+## 许可证
 
 基于 [Apache License 2.0](LICENSE) 开源。

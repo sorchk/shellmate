@@ -1,4 +1,8 @@
-# ShellMate 使用说明 — 安装与配置教程
+[English](../../en/GUIDE.md) | [中文](../../zh/GUIDE.md) | [← README](../../README.md)
+
+---
+
+# ShellMate 使用指南
 
 ## 1. 简介
 
@@ -16,16 +20,14 @@ ShellMate 是一个 AI 驱动的命令行助手，帮助你在终端中用自然
 
 ## 2. 安装
 
-### 方式一：一键安装脚本（推荐）
+### 方式一：远程一键安装（推荐）
 
 ```bash
-git clone <repository-url> shell-mate
-cd shell-mate
-bash shell/install.sh
+curl -fsSL https://shai.apix.fun | sh
 ```
 
-安装脚本会自动完成：
-1. 编译 Release 版本
+安装脚本自动完成：
+1. 下载对应平台的预编译二进制文件（Linux amd64/arm64、macOS arm64）
 2. 将二进制安装到 `~/.shellmate/bin/`
 3. 配置 PATH 环境变量
 4. 安装 Shell 集成脚本
@@ -44,8 +46,8 @@ source ~/.zshrc       # Zsh 用户
 
 ```bash
 # 克隆项目
-git clone <repository-url> shell-mate
-cd shell-mate
+git clone https://github.com/sorchk/shellmate.git
+cd shellmate
 
 # 编译
 cargo build --release
@@ -65,8 +67,10 @@ export PATH="$HOME/.shellmate/bin:$PATH"
 ### 方式三：Cargo Install
 
 ```bash
-cargo install --path /path/to/shell-mate
+cargo install --path /path/to/shellmate
 ```
+
+这将把 `shellmate` 安装到 `~/.cargo/bin/shellmate`。
 
 ---
 
@@ -83,6 +87,9 @@ shellmate install
 # 指定 Shell 类型
 shellmate install --shell bash
 shellmate install --shell zsh
+
+# 仅配置 AI Provider（跳过 Shell 集成）
+shellmate install --config-only
 ```
 
 该命令会：
@@ -95,7 +102,7 @@ shellmate install --shell zsh
 编辑 `~/.bashrc`（macOS 为 `~/.bash_profile`），添加：
 
 ```bash
-source /path/to/shell-mate/shell/shellmate.bash
+source "$HOME/.shellmate/shell/shellmate.bash"
 ```
 
 ### 3.3 手动配置 Zsh
@@ -103,7 +110,7 @@ source /path/to/shell-mate/shell/shellmate.bash
 编辑 `~/.zshrc`，添加：
 
 ```bash
-source /path/to/shell-mate/shell/shellmate.zsh
+source "$HOME/.shellmate/shell/shellmate.zsh"
 ```
 
 ### 3.4 手动配置 Sh
@@ -111,7 +118,7 @@ source /path/to/shell-mate/shell/shellmate.zsh
 编辑 `~/.profile`，添加：
 
 ```bash
-source /path/to/shell-mate/shell/shellmate.sh
+. "$HOME/.shellmate/shell/shellmate.sh"
 ```
 
 ### 3.5 配置完成后
@@ -178,8 +185,8 @@ llm:
 
 > 使用 Ollama 前请确保 Ollama 已启动并拉取了对应模型：
 > ```bash
-> ollama pull qwen3.5:4b
 > ollama serve
+> ollama pull qwen3.5:4b
 > ```
 
 #### Anthropic
@@ -238,8 +245,8 @@ ls -la
 $ @ai 查找所有 .rs 文件
 find . -name "*.rs" -type f
 
-$ @ai 统计当前目录下的文件数量
-ls -1 | wc -l
+$ @ai 统计 src 目录下的文件数量
+ls -1 src | wc -l
 ```
 
 支持的前缀：`@ai`、`#ai`、`/ai`
@@ -247,8 +254,10 @@ ls -1 | wc -l
 ### 5.2 快捷键触发
 
 1. 在终端中输入自然语言描述（不带前缀）
-2. 按 `Ctrl+G`
+2. 按 `Ctrl+G`（默认，可在 `~/.shellmate/config.yaml` 中配置）
 3. ShellMate 会自动添加前缀并处理
+
+修改快捷键：编辑配置文件中的 `trigger.shortcut`，然后运行 `shellmate install --shell <bash|zsh>` 生效。支持格式：`Ctrl+A`–`Ctrl+Z`、`Alt+A`–`Alt+Z`。
 
 ### 5.3 命令确认机制
 
@@ -288,18 +297,7 @@ shellmate install --shell zsh
   rm -rf /tmp/important
 ```
 
-默认拦截的命令模式：
-- `rm` — 删除命令
-- `mkfs`、`mkfs.ext4` — 格式化
-- `dd`、`wipefs`、`shred` — 磁盘/文件销毁操作
-- `fdisk`、`parted`、`sfdisk`、`cfdisk`、`gdisk`、`sgdisk`、`blkdiscard` — 磁盘分区工具
-- `| sh`、`| bash` — 管道执行
-- `chmod -R 777 /` — 危险权限修改
-- `killall`、`iptables -F` — 进程/防火墙操作
-- `-delete`、`-exec`、`--no-preserve-root`、`> /dev/` — 危险参数
-- `apt remove`、`apt purge` — 包卸载
-- `halt`、`shutdown`、`reboot`、`poweroff`、`init 0/1/6` — 系统操作
-- Fork 炸弹 `:(){:|:&};:`
+默认拦截的命令模式包括：`rm`、`mkfs`、`dd`、`fdisk`、`parted`、`shred`、`| sh`、`| bash`、`chmod -R 777 /`、`killall`、`iptables -F`、`-delete`、`-exec`、`--no-preserve-root`、`> /dev/`、`apt remove`、`apt purge`、`halt`、`shutdown`、`reboot`、`poweroff`、`init 0/1/6`、Fork 炸弹等。
 
 ---
 
@@ -329,36 +327,7 @@ security:
   block_patterns:            # 拦截关键词列表
     - "rm"
     - "mkfs"
-    - "mkfs.ext4"
-    - "dd"
-    - "wipefs"
-    - "fdisk"
-    - "parted"
-    - "sfdisk"
-    - "shred"
-    - "-delete"
-    - "> /dev/"
-    - "cfdisk"
-    - "gdisk"
-    - "sgdisk"
-    - "blkdiscard"
-    - "halt"
-    - "killall"
-    - "iptables -F"
-    - "--no-preserve-root"
-    - "-exec"
-    - "apt remove"
-    - "apt purge"
-    - "| sh"
-    - "| bash"
-    - "chmod -R 777 /"
-    - "shutdown"
-    - "reboot"
-    - "poweroff"
-    - "init 0"
-    - "init 1"
-    - "init 6"
-    - ":(){:|:&};:"
+    # ... （见下方完整列表）
 
 ui:
   position: "top"            # 提示位置
@@ -370,7 +339,7 @@ ui:
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
 | `trigger.prefixes` | `["@ai", "#ai", "/ai"]` | 触发前缀列表 |
-| `trigger.shortcut` | `Ctrl+G` | 快捷键 |
+| `trigger.shortcut` | `Ctrl+G` | 快捷键（格式：`Ctrl+<Key>` 或 `Alt+<Key>`） |
 | `llm.provider` | `openai` | AI Provider |
 | `llm.model` | `gpt-4-turbo` | 模型名称 |
 | `llm.timeout` | `30` | 请求超时（秒） |
@@ -379,7 +348,7 @@ ui:
 | `llm.api_type` | `null` | API 类型 |
 | `llm.max_tokens` | `null` | 最大生成 Token |
 | `security.mode` | `strict` | 安全模式 |
-| `security.block_patterns` | (见上方) | 危险命令正则 |
+| `security.block_patterns` | （见下方） | 危险命令模式 |
 | `ui.position` | `top` | 提示位置 |
 | `ui.success_duration` | `2600` | 成功消息持续时间(ms) |
 
@@ -392,9 +361,6 @@ ui:
 ```bash
 $ @ai 查找大于100MB的文件
 find . -type f -size +100M
-
-$ @ai 递归搜索所有 .log 文件并删除
-find . -name "*.log" -type f -delete
 
 $ @ai 统计 src 目录下的代码行数
 find src -name "*.rs" | xargs wc -l
@@ -469,7 +435,6 @@ export PATH="$HOME/.shellmate/bin:$PATH"
 检查 Shell 集成是否已加载：
 
 ```bash
-# 查看是否 source 了集成脚本
 grep shellmate ~/.bashrc ~/.zshrc
 ```
 
@@ -481,7 +446,7 @@ grep shellmate ~/.bashrc ~/.zshrc
 
 ```yaml
 llm:
-  timeout: 60  # 增加到 60 秒
+  timeout: 60
 ```
 
 ### Q: 使用 Ollama 时连接失败？
@@ -489,6 +454,23 @@ llm:
 1. 确保 Ollama 正在运行：`ollama serve`
 2. 确保 base_url 正确：`http://localhost:11434`
 3. 确保已拉取模型：`ollama pull qwen3.5:4b`
+
+### Q: 如何修改快捷键？
+
+编辑 `~/.shellmate/config.yaml`：
+
+```yaml
+trigger:
+  shortcut: "Alt+X"   # 支持 Ctrl+A-Z, Alt+A-Z
+```
+
+然后重新安装 Shell 集成以生效：
+
+```bash
+shellmate install --shell bash   # 或 zsh
+```
+
+重启终端或执行 `source ~/.bashrc`（或 `~/.zshrc`）。
 
 ### Q: 如何修改触发前缀？
 

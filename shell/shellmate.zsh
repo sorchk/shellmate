@@ -61,7 +61,7 @@ if [[ -z "$_SHELLMATE_ZSH_LOADED" ]]; then
     _SHELLMATE_ZSH_LOADED=1
 
     zle -N _shellmate_shortcut
-    bindkey '^G' _shellmate_shortcut
+    bindkey '__SHELLMATE_BIND_KEY_ZSH__' _shellmate_shortcut
 
     autoload -Uz add-zsh-hook
     _shellmate_preexec_hook() {

@@ -91,6 +91,6 @@ if [[ -z "$_SHELLMATE_BASH_LOADED" ]]; then
 
     if command -v shellmate &>/dev/null; then
         bind -x '"\C-xc": _shellmate_shortcut'
-        bind '"\C-g": "\C-xc\C-j"'
+        bind '"__SHELLMATE_BIND_KEY_BASH__": "\C-xc\C-j"'
     fi
 fi

@@ -146,7 +146,7 @@ main() {
     info "Next steps:"
     echo "  1. Restart your terminal or run: source $_sm_display_rc"
     echo "  2. Try: @ai list all files in current directory"
-    echo "  3. Or type a description and press Ctrl+G"
+    echo "  3. Or type a description and press Ctrl+G (configurable in config.yaml)"
     echo ""
 }
 

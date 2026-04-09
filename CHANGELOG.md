@@ -4,6 +4,34 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-04-08
+
+### ✨ Features
+
+- feat: configurable keyboard shortcut from config.yaml (8a9ad78)
+
+### 🐛 Bug Fixes
+
+- fix: 修复 Alt 键绑定格式和安装流程顺序 (4bbfa19)
+
+### 📝 Documentation
+
+- docs: update CHANGELOG.md for 2026-04-07 (7512e68)
+
+### 🔧 CI/Build
+
+- release: bump version to 0.1.8 (cc77414)
+- release: bump version to 0.1.7 (f420cd5)
+
+### 🔄 Other Changes
+
+- 修复小的文字错误 (0338b8d)
+
+**Commits:** 6 | **Contributors:** github-actions[bot],sorc
+
+---
+
+
 ## 2026-04-08 v0.1.8
 
 1. 发布(release): 发布 v0.1.8 版本 / Release v0.1.8

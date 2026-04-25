@@ -48,7 +48,7 @@ fn test_full_pipeline_mkfs_blocked() {
 #[test]
 fn test_config_integration() {
     let config = Config::default();
-    assert_eq!(config.trigger.prefixes, vec!["@ai", "#ai", "/ai"]);
+    assert_eq!(config.trigger.prefixes, vec!["@ai"]);
     assert_eq!(config.trigger.shortcut, "Ctrl+G");
     assert_eq!(config.llm.provider, "openai");
     assert_eq!(config.security.mode, "strict");

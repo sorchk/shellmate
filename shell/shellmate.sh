@@ -6,7 +6,7 @@ _shellmate_handle_prefix() {
     prompt="$*"
 
     case "$cmd" in
-        @ai|#ai|/ai) ;;
+        @ai) ;;
         *) return 1 ;;
     esac
 

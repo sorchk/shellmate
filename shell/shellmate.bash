@@ -7,18 +7,13 @@ _shellmate_shortcut() {
     fi
 
     local prompt="$input"
-    local prefixes=("@ai" "#ai" "/ai")
-    for prefix in "${prefixes[@]}"; do
-        if [[ "$input" == "${prefix} "* ]]; then
-            prompt="${input#${prefix} }"
-            break
-        fi
-        if [[ "$input" == "${prefix}" ]]; then
-            READLINE_LINE=""
-            READLINE_POINT=0
-            return
-        fi
-    done
+    if [[ "$input" == "@ai "* ]]; then
+        prompt="${input#@ai }"
+    elif [[ "$input" == "@ai" ]]; then
+        READLINE_LINE=""
+        READLINE_POINT=0
+        return
+    fi
 
     READLINE_LINE="@ai $prompt"
     READLINE_POINT=${#READLINE_LINE}
@@ -29,21 +24,11 @@ _shellmate_handle_prefix() {
     shift
     local full_cmd="$cmd $*"
 
-    local prefixes=("@ai" "#ai" "/ai")
-    local matched=0
-    local prompt=""
-
-    for prefix in "${prefixes[@]}"; do
-        if [[ "$cmd" == "$prefix" ]]; then
-            prompt="$*"
-            matched=1
-            break
-        fi
-    done
-
-    if [[ $matched -eq 0 ]]; then
+    if [[ "$cmd" != "@ai" ]]; then
         return 1
     fi
+
+    local prompt="$*"
 
     if [[ -z "$prompt" ]]; then
         return 0
@@ -67,6 +52,61 @@ _shellmate_handle_prefix() {
         fi
     fi
     return 0
+}
+
+_shellmate_dirs_file() {
+    echo "${HOME}/.shellmate/dirs"
+}
+
+_shellmate_cd_record() {
+    local dirs_file
+    dirs_file="$(_shellmate_dirs_file)"
+    local cwd
+    cwd="$(pwd)"
+    [[ ! -d "$cwd" ]] && return 0
+
+    local tmp
+    tmp="$(mktemp)"
+    {
+        echo "$cwd"
+        if [[ -f "$dirs_file" ]]; then
+            grep -v -x -F "$cwd" "$dirs_file" 2>/dev/null
+        fi
+    } | head -20 > "$tmp"
+    mkdir -p "${dirs_file%/*}"
+    mv "$tmp" "$dirs_file"
+}
+
+_shellmate_cd_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    if [[ "$cur" != \#* ]]; then
+        COMPREPLY=()
+        return
+    fi
+
+    local keyword="${cur#\#}"
+    local dirs_file
+    dirs_file="$(_shellmate_dirs_file)"
+    [[ ! -f "$dirs_file" ]] && { COMPREPLY=(); return; }
+
+    local matches=()
+    while IFS= read -r dir; do
+        [[ -z "$dir" || ! -d "$dir" ]] && continue
+        if [[ -z "$keyword" ]] || [[ "${dir,,}" == *"${keyword,,}"* ]]; then
+            matches+=("$dir")
+        fi
+    done < "$dirs_file"
+
+    if [[ ${#matches[@]} -eq 0 ]]; then
+        COMPREPLY=()
+    elif [[ ${#matches[@]} -eq 1 ]]; then
+        COMPREPLY=("${matches[0]}")
+    else
+        for i in "${!matches[@]}"; do
+            printf '  %d) %s\n' "$((i + 1))" "${matches[$i]}" >&2
+        done
+        COMPREPLY=()
+    fi
 }
 
 if [[ -z "$_SHELLMATE_BASH_LOADED" ]]; then
@@ -93,4 +133,16 @@ if [[ -z "$_SHELLMATE_BASH_LOADED" ]]; then
         bind -x '"\C-xc": _shellmate_shortcut'
         bind '"__SHELLMATE_BIND_KEY_BASH__": "\C-xc\C-j"'
     fi
+
+    _shellmate_prev_pwd="$PWD"
+    _shellmate_prompt_cd_record() {
+        if [[ "$PWD" != "$_shellmate_prev_pwd" ]]; then
+            _shellmate_cd_record
+            _shellmate_prev_pwd="$PWD"
+        fi
+    }
+    _shellmate_orig_prompt_cmd="${PROMPT_COMMAND:-}"
+    PROMPT_COMMAND='_shellmate_prompt_cd_record; '"${PROMPT_COMMAND:+$_shellmate_orig_prompt_cmd; }"
+
+    complete -o nospace -F _shellmate_cd_complete cd
 fi

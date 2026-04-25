@@ -14,7 +14,7 @@ fn test_parse_bash_history_basic() {
 
 #[test]
 fn test_parse_bash_history_filters_prefixes() {
-    let content = "ls -la\n@ai fix this\n#ai help\necho hello\n/ai do stuff\npwd";
+    let content = "ls -la\n@ai fix this\necho hello\npwd";
     let result = parse_bash_history(content);
     let filtered: Vec<String> = result
         .into_iter()
@@ -61,8 +61,8 @@ fn test_parse_zsh_history_mixed() {
 #[test]
 fn test_is_trigger_command() {
     assert!(is_trigger_command("@ai fix this"));
-    assert!(is_trigger_command("#ai help"));
-    assert!(is_trigger_command("/ai do stuff"));
+    assert!(!is_trigger_command("#ai help"));
+    assert!(!is_trigger_command("/ai do stuff"));
     assert!(!is_trigger_command("ls -la"));
     assert!(!is_trigger_command("git commit"));
     assert!(!is_trigger_command("echo @ai is cool"));

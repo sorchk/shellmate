@@ -6,7 +6,7 @@ use tempfile::TempDir;
 fn test_default_config() {
     let config = Config::default();
 
-    assert_eq!(config.trigger.prefixes, vec!["@ai", "#ai", "/ai"]);
+    assert_eq!(config.trigger.prefixes, vec!["@ai"]);
     assert_eq!(config.trigger.shortcut, "Ctrl+G");
 
     assert_eq!(config.llm.provider, "openai");

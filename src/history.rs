@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 
-const PREFIXES: &[&str] = &["@ai", "#ai", "/ai"];
+const PREFIXES: &[&str] = &["@ai"];
 const MAX_ENTRIES: usize = 8;
 
 pub fn read_history(history_path: &Path, shell: &str) -> Result<Vec<String>, AppError> {

@@ -13,7 +13,7 @@ pub struct TriggerConfig {
 
 impl TriggerConfig {
     fn default_prefixes() -> Vec<String> {
-        vec!["@ai".into(), "#ai".into(), "/ai".into()]
+        vec!["@ai".into()]
     }
 
     fn default_shortcut() -> String {

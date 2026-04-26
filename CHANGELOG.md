@@ -4,6 +4,21 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-04-25
+
+### 📝 Documentation
+
+- docs: update CHANGELOG.md for 2026-04-24 (e489597)
+
+### 🔄 Other Changes
+
+- 修改仅支持@ai和快捷键激活AI (11ed0b2)
+
+**Commits:** 2 | **Contributors:** github-actions[bot],sorc
+
+---
+
+
 ## 2026-04-24
 
 ### 📝 Documentation

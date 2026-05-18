@@ -4,6 +4,17 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-05-17
+
+### 📝 Documentation
+
+- docs: update CHANGELOG.md for 2026-05-16 (c881f6f)
+
+**Commits:** 1 | **Contributors:** github-actions[bot]
+
+---
+
+
 ## 2026-05-16
 
 ### 📝 Documentation

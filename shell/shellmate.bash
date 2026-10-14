@@ -80,7 +80,12 @@ _shellmate_cd_record() {
 _shellmate_cd_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [[ "$cur" != \#* ]]; then
+        # 普通目录名交给 bash-completion 原生的 `cd` 补全，否则 `cd <TAB>`
+        # 会因为本函数注册后覆盖了原生规约而完全失去补全能力。
         COMPREPLY=()
+        if declare -F _cd >/dev/null 2>&1; then
+            _cd
+        fi
         return
     fi
 
@@ -112,9 +117,17 @@ _shellmate_cd_complete() {
 if [[ -z "$_SHELLMATE_BASH_LOADED" ]]; then
     _SHELLMATE_BASH_LOADED=1
 
+    # 保存原有的 command_not_found_handle，以便 shellmate 未处理时回退调用。
+    # 注意: `declare -f` 的输出形式为 `name () \n{ ... }`，因此只能按第一个 `{`
+    # 截取函数体，直接去掉函数名会残留 `()` 导致 eval 语法错误。
     if [[ -n "$(type -t command_not_found_handle 2>/dev/null)" ]]; then
         _shellmate_orig_cnfh="$(declare -f command_not_found_handle)"
-        eval "_shellmate_prev_cnfh() { ${_shellmate_orig_cnfh#command_not_found_handle} }"
+        if [[ "$_shellmate_orig_cnfh" == *"{"* ]]; then
+            _shellmate_prev_cnfh_body="${_shellmate_orig_cnfh#*\{}"
+            eval "_shellmate_prev_cnfh() {${_shellmate_prev_cnfh_body}"
+            unset _shellmate_prev_cnfh_body
+        fi
+        unset _shellmate_orig_cnfh
     fi
 
     command_not_found_handle() {
@@ -129,9 +142,10 @@ if [[ -z "$_SHELLMATE_BASH_LOADED" ]]; then
         return 127
     }
 
+    # 必须用 `bind -x` 直接绑定到用户配置的按键: readline 的 `bind '"\C-g": "..."'`
+    # 只是把按键展开成普通字符序列插入编辑缓冲区，不会调用 _shellmate_shortcut。
     if command -v shellmate &>/dev/null; then
-        bind -x '"\C-xc": _shellmate_shortcut'
-        bind '"__SHELLMATE_BIND_KEY_BASH__": "\C-xc\C-j"'
+        bind -x '"__SHELLMATE_BIND_KEY_BASH__": _shellmate_shortcut'
     fi
 
     _shellmate_prev_pwd="$PWD"

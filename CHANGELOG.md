@@ -4,6 +4,15 @@ All notable changes to ShellMate are documented here.
 
 ---
 
+## 2026-10-14 v0.1.9
+
+1. 发布(release): 发布 v0.1.9 版本 / Release v0.1.9
+2. 修复(fix): 恢复原生 cd 补全，普通目录名回落到 bash-completion 的 `_cd` / Restore native cd completion by delegating to `_cd`
+3. 修复(fix): 快捷键改用 `bind -x` 直接绑定，避免模拟按键序列只插入字符而不触发处理函数 / Bind the shortcut with `bind -x` so it actually invokes the handler
+4. 修复(fix): 正确提取原 `command_not_found_handle` 函数体，避免残留 `()` 导致 `eval` 语法错误 / Extract the previous command_not_found_handle body at the first `{`
+
+---
+
 ## 2026-07-07
 
 ### 📝 Documentation
